@@ -34,14 +34,14 @@ import javax.servlet.ServletException;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.DataInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import org.apache.commons.io.IOUtils;
+import org.opencv.objdetect.CascadeClassifier;
+import org.opencv.core.*;
 
 /**
  * Servlet for constructing the components of the "My DSpace" page
@@ -50,9 +50,13 @@ import java.util.List;
  * @author Jay Paz
  * @version $Id$
  */
-//TODO:MYO - Here add anonymization step
 public class MyDSpaceServlet extends DSpaceServlet
 {
+   static {
+      System.load("C:\\Program Files\\opencv\\build\\java\\x64\\opencv_java249.dll"); //fixme
+      //System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+   }
+
     /** Logger */
     private static Logger log = Logger.getLogger(MyDSpaceServlet.class);
 
@@ -495,6 +499,12 @@ public class MyDSpaceServlet extends DSpaceServlet
             showMainPage(context, request, response);
             context.complete();
         }
+        else if (buttonPressed.equals("submit_anonymization"))
+        {
+           //todo:myo redirect to correct page
+           Item item = workflowItem.getItem();
+           processAnnonymization(context, item);
+        }
         else
         {
             // Cancelled. The user hasn't taken the task.
@@ -895,4 +905,79 @@ public class MyDSpaceServlet extends DSpaceServlet
 
         JSPManager.showJSP(request, response, "/mydspace/own-submissions.jsp");
     }
+
+
+   private void processAnnonymization(Context context, Item item)
+   {
+      //todo: get the file, and anonimize
+      // Get all the metadata
+      Metadatum[] values = item.getMetadata(Item.ANY, Item.ANY, Item.ANY, Item.ANY);
+
+      try
+      {
+         Bundle[] bundles = item.getBundles("ORIGINAL");
+
+         boolean filesExist = false;
+
+         for (Bundle bnd : bundles)
+         {
+            filesExist = bnd.getBitstreams().length > 0;
+            if (filesExist)
+            {
+               break;
+            }
+         }
+
+         // if user already has uploaded at least one file
+         if (filesExist)
+         {
+//            String handle = item.getHandle();
+//            Bitstream primaryBitstream = null;
+//
+//            Bundle[] bunds = item.getBundles("ORIGINAL");
+//            Bundle[] thumbs = item.getBundles("THUMBNAIL");
+//
+//            // if item contains multiple bitstreams, display bitstream
+//            // description
+//            boolean multiFile = false;
+//            Bundle[] allBundles = item.getBundles();
+//
+//            for (int i = 0, filecount = 0; (i < allBundles.length)
+//                    && !multiFile; i++)
+//            {
+//               filecount += allBundles[i].getBitstreams().length;
+//               multiFile = (filecount > 1);
+//            }
+
+            for (int i = 0; i < bundles.length; i++)
+            {
+               Bitstream[] bitstreams = bundles[i].getBitstreams();
+               InputStream inputStream = bitstreams[0].retrieve();
+
+//               OpenCVLoader.initDebug()
+
+             // System.loadLibrary(Core.NATIVE_LIBRARY_NAME);//opencv_java249
+               CascadeClassifier faceDetector = new CascadeClassifier("C:/dspace/haarcascade_frontalface_alt.xml");
+
+               MatOfByte file = new MatOfByte();
+               file.fromArray(IOUtils.toByteArray(inputStream));
+               Mat image = file.t();
+
+               MatOfRect faceDetections = new MatOfRect();
+               faceDetector.detectMultiScale(image, faceDetections);
+
+               for (Rect rect : faceDetections.toArray()) {
+                  Core.rectangle(image, new Point(rect.x, rect.y), new Point(rect.x + rect.width, rect.y + rect.height),
+                          new Scalar(0, 255, 0));
+               }
+            }
+         }
+      }
+      catch(Exception e)
+      {
+         //fixme
+         e.printStackTrace();
+      }
+
+   }
 }

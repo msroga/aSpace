@@ -67,6 +67,15 @@
 	<p><fmt:message key="jsp.mydspace.preview-task.text4"> 
         <fmt:param><%= collection.getMetadata("name") %></fmt:param>
     </fmt:message></p>
+
+<%
+    }
+    else if(workflowItem.getState() == WorkflowManager.WFSTATE_STEP4ANONYMIZATION)
+    {
+%>
+    <p><fmt:message key="jsp.mydspace.preview-task.text.anonymization">
+        <fmt:param><%= collection.getMetadata("name") %></fmt:param>
+    </fmt:message></p>
 <%
     }
 %>

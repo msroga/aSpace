@@ -145,6 +145,16 @@
     		<artifactId>opencloud</artifactId>
     		<version>0.3</version>
 		</dependency>
+
+        <!-- Additional For Anonimization-->
+        <dependency>
+            <groupId>org.bytedeco</groupId>
+            <artifactId>javacv</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>nu.pattern</groupId>
+            <artifactId>opencv</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

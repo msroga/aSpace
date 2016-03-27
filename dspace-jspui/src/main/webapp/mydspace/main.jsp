@@ -198,6 +198,7 @@
             case WorkflowManager.WFSTATE_STEP1POOL: %><fmt:message key="jsp.mydspace.main.sub1"/><% break;
             case WorkflowManager.WFSTATE_STEP2POOL: %><fmt:message key="jsp.mydspace.main.sub2"/><% break;
             case WorkflowManager.WFSTATE_STEP3POOL: %><fmt:message key="jsp.mydspace.main.sub3"/><% break;
+            case WorkflowManager.WFSTATE_STEP4ANONYMIZATION: %><fmt:message key="jsp.mydspace.main.sub3"/><% break;//fixme: myo
             }
 %>
                     </td>

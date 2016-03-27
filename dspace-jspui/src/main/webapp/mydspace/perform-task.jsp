@@ -82,7 +82,8 @@
 <%
     
     if (workflowItem.getState() == WorkflowManager.WFSTATE_STEP1 ||
-        workflowItem.getState() == WorkflowManager.WFSTATE_STEP2)
+        workflowItem.getState() == WorkflowManager.WFSTATE_STEP2 ||
+        workflowItem.getState() == WorkflowManager.WFSTATE_STEP3)
     {
 %>
                     <div class="input-group">
@@ -99,7 +100,6 @@
     }
     else
     {
-        // Must be an editor (step 3)
 %>
                     
                     <div class="input-group">
@@ -113,6 +113,24 @@
 					<fmt:message key="jsp.mydspace.perform-task.instruct2"/>
 					</span>
                     </div>
+
+<%
+    }
+
+    if (workflowItem.getState() == WorkflowManager.WFSTATE_STEP4)
+    {
+%>
+        <div class="input-group">
+					<span class="input-group-addon">
+					<%-- <input type="submit" name="submit_approve" value="Commit to Archive"> --%>
+					<input style="width:150px;" class="btn btn-primary" type="submit" name="submit_anonymization" value="<fmt:message key="jsp.mydspace.perform-task.annonimize.button"/>" />
+					</span>
+                    <span class="form-control">
+                    <%-- Once you've edited the item, use this option to commit the
+                    item to the archive. --%>
+					<fmt:message key="jsp.mydspace.perform-task.instruct-anonimize"/>
+					</span>
+        </div>
 <%
     }
 
@@ -148,8 +166,8 @@
                     <%-- Select this option to correct, amend or otherwise edit the item's metadata. --%>
 					<fmt:message key="jsp.mydspace.perform-task.instruct4"/>
 					</span>
-				</div>	
-			
+				</div>
+
 <%
     }
 %>

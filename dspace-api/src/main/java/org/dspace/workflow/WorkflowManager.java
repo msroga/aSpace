@@ -77,11 +77,11 @@ public class WorkflowManager
     public static final int WFSTATE_STEP3 = 6; // task - editor has claimed the
                                                // item
 
-    public static final int WFSTATE_STEP3ANONYMIZE = 7; // task - waitnig for annonimisationproces
+    public static final int WFSTATE_STEP4ANONYMIZATION = 7; // task - waitnig for annonimisationproces
 
     public static final int WFSTATE_STEP4 = 8; // task - editor has claimed the
 
-    public static final int WFSTATE_ARCHIVE = 7; // probably don't need this one
+    public static final int WFSTATE_ARCHIVE = 9; // probably don't need this one
                                                  // either
 
     /** Symbolic names of workflow steps. */
@@ -94,7 +94,9 @@ public class WorkflowManager
         "STEP2",            // 4
         "STEP3POOL",        // 5
         "STEP3",            // 6
-        "ARCHIVE"           // 7
+        "STEP4ANONYMIZATION",//7
+        "WFSTATE_STEP4",    // 8
+        "ARCHIVE"           // 9
     };
 
     /* support for 'no notification' */
@@ -293,6 +295,12 @@ public class WorkflowManager
 
             break;
 
+        case WFSTATE_STEP4ANONYMIZATION:
+
+           doState(c, wi, WFSTATE_STEP4, e);
+
+           break;
+
         // if we got here, we weren't pooled... error?
         // FIXME - log the error?
         }
@@ -398,12 +406,22 @@ public class WorkflowManager
 
         case WFSTATE_STEP3:
 
-            // authorize DSpaceActions.SUBMIT_STEP3
-            // We don't record approval for editors, since they can't reject,
-            // and thus didn't actually make a decision
-            archived = doState(c, wi, WFSTATE_ARCHIVE, e);
+            if (record)
+            {
+              recordApproval(c, wi, e);
+            }
+            archived = doState(c, wi, WFSTATE_STEP4ANONYMIZATION, e);
 
             break;
+
+        case WFSTATE_STEP4:
+
+           // authorize DSpaceActions.SUBMIT_STEP3
+           // We don't record approval for editors, since they can't reject,
+           // and thus didn't actually make a decision
+           archived = doState(c, wi, WFSTATE_ARCHIVE, e);
+
+           break;
 
         // error handling? shouldn't get here
         }
@@ -453,6 +471,12 @@ public class WorkflowManager
             doState(c, wi, WFSTATE_STEP3POOL, e);
 
             break;
+
+           case WFSTATE_STEP4:
+
+              doState(c, wi, WFSTATE_STEP4ANONYMIZATION, e);
+
+              break;
 
         // error handling? shouldn't get here
         // FIXME - what to do with error - log it?
@@ -626,12 +650,46 @@ public class WorkflowManager
 
         case WFSTATE_STEP3:
 
-            // remove editors from tasklist
-            // assign owner
             deleteTasks(c, wi);
             wi.setOwner(newowner);
 
             break;
+
+        case WFSTATE_STEP4ANONYMIZATION:
+
+           wi.setOwner(null);
+           //FIXME: tutaj sa jakies grupy od kolekcji wezne sobie dla poprzedniego kroku
+           mygroup = mycollection.getWorkflowGroup(3);
+
+           if ((mygroup != null) && !(mygroup.isEmpty()))
+           {
+              // get a list of all epeople in group (or any subgroups)
+              EPerson[] epa = Group.allMembers(c, mygroup);
+
+              // there were editors, change the state
+              //  timestamp, and add them to the list
+              createTasks(c, wi, epa);
+
+              // email notification
+              notifyGroupOfTask(c, wi, mygroup, epa);
+           }
+           else
+           {
+              // no editors, skip ahead
+              wi.setState(WFSTATE_STEP4);
+              archived = advance(c, wi, null, true, false);
+           }
+
+           break;
+
+        case WFSTATE_STEP4:
+
+           // remove editors from tasklist
+           // assign owner
+           deleteTasks(c, wi);
+           wi.setOwner(newowner);
+
+           break;
 
         case WFSTATE_ARCHIVE:
 
@@ -661,7 +719,7 @@ public class WorkflowManager
     }
 
     private static void logWorkflowEvent(Context c, Item item, WorkflowItem workflowItem, EPerson actor, int newstate, EPerson newOwner, Collection mycollection, int oldState, Group newOwnerGroup) {
-        if(newstate == WFSTATE_ARCHIVE || newstate == WFSTATE_STEP1POOL || newstate == WFSTATE_STEP2POOL || newstate == WFSTATE_STEP3POOL){
+        if(newstate == WFSTATE_ARCHIVE || newstate == WFSTATE_STEP1POOL || newstate == WFSTATE_STEP2POOL || newstate == WFSTATE_STEP3POOL || newstate == WFSTATE_STEP4ANONYMIZATION){
             //Clear the newowner variable since this one isn't owned anymore !
             newOwner = null;
         }
@@ -983,6 +1041,12 @@ public class WorkflowManager
                             message = messages.getString("org.dspace.workflow.WorkflowManager.step3");
 
                             break;
+
+                       case WFSTATE_STEP4ANONYMIZATION:
+                          //fixme: myo - message for annonimization
+                          message = messages.getString("org.dspace.workflow.WorkflowManager.step3");
+
+                          break;
                     }
                     email.addArgument(message);
                     email.addArgument(getMyDSpaceLink());
