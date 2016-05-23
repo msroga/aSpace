@@ -7,22 +7,7 @@
  */
 package org.dspace.app.webui.servlet;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.FileOutputStream;
-import java.io.OutputStream;
-import java.sql.SQLException;
-import java.util.Enumeration;
-import java.util.ArrayList;
-import java.util.List;
-
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import com.google.gson.Gson;
 import org.apache.commons.fileupload.FileUploadBase.FileSizeLimitExceededException;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
@@ -40,13 +25,16 @@ import org.dspace.content.WorkspaceItem;
 import org.dspace.core.ConfigurationManager;
 import org.dspace.core.Context;
 import org.dspace.core.LogManager;
-import org.dspace.workflow.WorkflowItem;
 import org.dspace.submit.AbstractProcessingStep;
-
-import com.google.gson.Gson;
-import java.util.Collections;
-import javax.servlet.http.HttpSession;
 import org.dspace.submit.step.UploadStep;
+import org.dspace.workflow.WorkflowItem;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.*;
+import java.sql.SQLException;
+import java.util.Enumeration;
 
 /**
  * Submission Manager servlet for DSpace. Handles the initial submission of
@@ -144,6 +132,7 @@ public class SubmissionController extends DSpaceServlet
         String workspaceID = request.getParameter("resume");
         String workflowID = request.getParameter("workflow");
         String resumableFilename = request.getParameter("resumableFilename");
+        Boolean anonymization = Boolean.valueOf(request.getParameter("anonymization"));
 
         // If resuming a workspace item
         if (workspaceID != null)
@@ -155,7 +144,7 @@ public class SubmissionController extends DSpaceServlet
                         .parseInt(workspaceID));
 
                 //load submission information
-                SubmissionInfo si = SubmissionInfo.load(request, wi);
+                SubmissionInfo si = SubmissionInfo.load(request, wi, Boolean.TRUE.equals(anonymization));
                 
                 //TD: Special case - If a user is resuming a submission
                 //where the submission process now has less steps, then
@@ -199,7 +188,7 @@ public class SubmissionController extends DSpaceServlet
                         .parseInt(workflowID));
 
                 //load submission information
-                SubmissionInfo si = SubmissionInfo.load(request, wi);
+                SubmissionInfo si = SubmissionInfo.load(request, wi, Boolean.TRUE.equals(anonymization));
                 
                 // start over at beginning of first workflow step
                 setBeginningOfStep(request, true);

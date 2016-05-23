@@ -18,6 +18,7 @@
  <!-- for handle "default".                                                -->
  <submission-map>
    <name-map collection-handle="default" submission-name="traditional" />
+   <name-map collection-handle="anonymize" submission-name="anonymization" />
  </submission-map>
 
 
@@ -271,6 +272,46 @@
 
      
    </submission-process>
+
+     <submission-process name="anonymization">
+
+         <step>
+             <processing-class>org.dspace.submit.step.SkipInitialQuestionsStep</processing-class>
+         </step>
+
+         <step>
+             <heading>submit.progressbar.describe</heading>
+             <processing-class>org.dspace.submit.step.AnonymizeDescribeStep</processing-class>
+             <jspui-binding>org.dspace.app.webui.submit.step.JSPAnonymizeDescribeStep</jspui-binding>
+             <xmlui-binding>org.dspace.app.xmlui.aspect.submission.submit.DescribeStep</xmlui-binding>
+             <workflow-editable>true</workflow-editable>
+         </step>
+
+         <step>
+             <heading>submit.progressbar.upload</heading>
+             <processing-class>org.dspace.submit.step.AnonymizeUploadStep</processing-class>
+             <jspui-binding>org.dspace.app.webui.submit.step.JSPAnonymizeUploadStep</jspui-binding>
+             <xmlui-binding>org.dspace.app.xmlui.aspect.submission.submit.UploadStep</xmlui-binding>
+             <workflow-editable>true</workflow-editable>
+         </step>
+
+         <step>
+             <heading>submit.progressbar.verify</heading>
+             <processing-class>org.dspace.submit.step.AnonymizeVerifyStep</processing-class>
+             <jspui-binding>org.dspace.app.webui.submit.step.JSPAnonymizeVerifyStep</jspui-binding>
+             <xmlui-binding>org.dspace.app.xmlui.aspect.submission.submit.ReviewStep</xmlui-binding>
+             <workflow-editable>true</workflow-editable>
+         </step>
+
+         <step>
+             <heading>submit.progressbar.license</heading>
+             <processing-class>org.dspace.submit.step.LicenseStep</processing-class>
+             <jspui-binding>org.dspace.app.webui.submit.step.JSPLicenseStep</jspui-binding>
+             <xmlui-binding>org.dspace.app.xmlui.aspect.submission.submit.LicenseStep</xmlui-binding>
+             <workflow-editable>false</workflow-editable>
+         </step>
+
+     </submission-process>
 
  </submission-definitions>
 

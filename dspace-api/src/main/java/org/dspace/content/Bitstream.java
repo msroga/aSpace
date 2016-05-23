@@ -7,16 +7,9 @@
  */
 package org.dspace.content;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.log4j.Logger;
 import org.dspace.authorize.AuthorizeException;
 import org.dspace.authorize.AuthorizeManager;
-import org.dspace.core.ConfigurationManager;
 import org.dspace.core.Constants;
 import org.dspace.core.Context;
 import org.dspace.core.LogManager;
@@ -25,6 +18,12 @@ import org.dspace.storage.bitstore.BitstreamStorageManager;
 import org.dspace.storage.rdbms.DatabaseManager;
 import org.dspace.storage.rdbms.TableRow;
 import org.dspace.storage.rdbms.TableRowIterator;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Class representing bitstreams stored in the DSpace system.
@@ -182,6 +181,13 @@ public class Bitstream extends DSpaceObject
         return bitstreamArray;
     }
 
+   public static Bitstream revert(Context context, BitstreamBackup backup)
+           throws IOException, SQLException
+   {
+      int id = BitstreamStorageManager.revert(context, backup);
+      return Bitstream.find(context, id);
+   }
+
     /**
      * Create a new bitstream, with a new ID. The checksum and file size are
      * calculated. This method is not public, and does not check authorisation;
@@ -197,7 +203,7 @@ public class Bitstream extends DSpaceObject
      * @throws IOException
      * @throws SQLException
      */
-    static Bitstream create(Context context, InputStream is)
+    public static Bitstream create(Context context, InputStream is)
             throws IOException, SQLException
     {
         // Store the bits
@@ -510,7 +516,7 @@ public class Bitstream extends DSpaceObject
      * 
      * @throws SQLException
      */
-    void delete() throws SQLException
+    public void delete() throws SQLException
     {
         boolean oracle = DatabaseManager.isOracle();
 
@@ -542,6 +548,38 @@ public class Bitstream extends DSpaceObject
         removeMetadataFromDatabase();
     }
 
+   //Delete from db
+   public void deleteForever() throws SQLException
+   {
+      boolean oracle = DatabaseManager.isOracle();
+
+      // changed to a check on remove
+      // Check authorisation
+      //AuthorizeManager.authorizeAction(ourContext, this, Constants.DELETE);
+      log.info(LogManager.getHeader(ourContext, "delete_bitstream",
+              "bitstream_id=" + getID()));
+
+      ourContext.addEvent(new Event(Event.DELETE, Constants.BITSTREAM, getID(),
+              String.valueOf(getSequenceID()), getIdentifiers(ourContext)));
+
+      // Remove from cache
+      ourContext.removeCached(this, getID());
+
+      // Remove policies
+      AuthorizeManager.removeAllPolicies(ourContext, this);
+
+      // Remove references to primary bitstreams in bundle
+      String query = "update bundle set primary_bitstream_id = ";
+      query += (oracle ? "''" : "Null") + " where primary_bitstream_id = ? ";
+      DatabaseManager.updateQuery(ourContext,
+              query, bRow.getIntColumn("bitstream_id"));
+
+      // Remove bitstream itself
+      BitstreamStorageManager.deleteForever(ourContext, bRow
+              .getIntColumn("bitstream_id"));
+
+      removeMetadataFromDatabase();
+   }
     /**
      * Bitstreams are only logically deleted (via a flag in the database).
      * This method allows us to verify is the bitstream is still valid
@@ -731,4 +769,9 @@ public class Bitstream extends DSpaceObject
         //Also fire a modified event since the bitstream HAS been modified
         ourContext.addEvent(new Event(Event.MODIFY, Constants.BITSTREAM, getID(), null, getIdentifiers(ourContext)));
     }
+
+   public String getInternalID()
+   {
+      return bRow.getStringColumn("internal_id");
+   }
 }

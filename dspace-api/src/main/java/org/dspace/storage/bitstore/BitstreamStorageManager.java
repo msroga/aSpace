@@ -7,6 +7,23 @@
  */
 package org.dspace.storage.bitstore;
 
+import edu.sdsc.grid.io.FileFactory;
+import edu.sdsc.grid.io.GeneralFile;
+import edu.sdsc.grid.io.GeneralFileOutputStream;
+import edu.sdsc.grid.io.local.LocalFile;
+import edu.sdsc.grid.io.srb.SRBAccount;
+import edu.sdsc.grid.io.srb.SRBFile;
+import edu.sdsc.grid.io.srb.SRBFileSystem;
+import org.apache.log4j.Logger;
+import org.dspace.checker.BitstreamInfoDAO;
+import org.dspace.content.Bitstream;
+import org.dspace.content.BitstreamBackup;
+import org.dspace.core.ConfigurationManager;
+import org.dspace.core.Context;
+import org.dspace.core.Utils;
+import org.dspace.storage.rdbms.DatabaseManager;
+import org.dspace.storage.rdbms.TableRow;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,22 +34,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-
-import org.apache.log4j.Logger;
-import org.dspace.checker.BitstreamInfoDAO;
-import org.dspace.core.ConfigurationManager;
-import org.dspace.core.Context;
-import org.dspace.core.Utils;
-import org.dspace.storage.rdbms.DatabaseManager;
-import org.dspace.storage.rdbms.TableRow;
-
-import edu.sdsc.grid.io.FileFactory;
-import edu.sdsc.grid.io.GeneralFile;
-import edu.sdsc.grid.io.GeneralFileOutputStream;
-import edu.sdsc.grid.io.local.LocalFile;
-import edu.sdsc.grid.io.srb.SRBAccount;
-import edu.sdsc.grid.io.srb.SRBFile;
-import edu.sdsc.grid.io.srb.SRBFileSystem;
 
 /**
  * <P>
@@ -326,7 +327,7 @@ public class BitstreamStorageManager
                     .digest()));
             bitstream.setColumn("checksum_algorithm", "MD5");
         }
-        
+
         bitstream.setColumn("deleted", false);
         DatabaseManager.update(context, bitstream);
 
@@ -340,6 +341,86 @@ public class BitstreamStorageManager
 
         return bitstreamId;
     }
+
+   public static int backup(Context context, Bitstream object)
+           throws SQLException, IOException
+   {
+      // Create a deleted bitstream row, using a separate DB connection
+      TableRow bitstream;
+      Context tempContext = null;
+
+      try
+      {
+         tempContext = new Context();
+
+         bitstream = DatabaseManager.row("Bitstream_Backup");
+         bitstream.setColumn("deleted", false);
+         bitstream.setColumn("internal_id", object.getInternalID());
+         bitstream.setColumn("store_number", object.getStoreNumber());
+         bitstream.setColumn("size_bytes", object.getSize());
+         bitstream.setColumn("checksum", object.getChecksum());
+         bitstream.setColumn("checksum_algorithm", object.getChecksumAlgorithm());
+         bitstream.setColumn("bitstream_format_id", object.getFormat().getID());
+         bitstream.setColumn("sequence_id", object.getSequenceID());
+
+         DatabaseManager.insert(tempContext, bitstream);
+
+         tempContext.complete();
+      }
+      catch (SQLException sqle)
+      {
+         if (tempContext != null)
+         {
+            tempContext.abort();
+         }
+
+         throw sqle;
+      }
+
+      int bitstreamId = bitstream.getIntColumn("bitstream_backup_id");
+      return bitstreamId;
+   }
+
+   public static int revert(Context context, BitstreamBackup backup)
+           throws SQLException, IOException
+   {
+      // Create a deleted bitstream row, using a separate DB connection
+      TableRow bitstream;
+      Context tempContext = null;
+
+      try
+      {
+         tempContext = new Context();
+
+         bitstream = DatabaseManager.row("Bitstream");
+         bitstream.setColumn("deleted", false);
+         bitstream.setColumn("internal_id", backup.getInternalID());
+         bitstream.setColumn("store_number", backup.getStoreNumber());
+         bitstream.setColumn("size_bytes", backup.getSize());
+         bitstream.setColumn("checksum", backup.getChecksum());
+         bitstream.setColumn("checksum_algorithm", backup.getChecksumAlgorithm());
+         bitstream.setColumn("bitstream_format_id", backup.getFormat().getID());
+         bitstream.setColumn("sequence_id", backup.getSequenceID());
+
+         DatabaseManager.insert(tempContext, bitstream);
+
+         tempContext.complete();
+      }
+      catch (SQLException sqle)
+      {
+         if (tempContext != null)
+         {
+            tempContext.abort();
+         }
+
+         throw sqle;
+      }
+
+      //remove file form anywhere it is
+
+      int bitstreamId = bitstream.getIntColumn("bitstream_id");
+      return bitstreamId;
+   }
 
 	/**
 	 * Register a bitstream already in storage.
@@ -554,6 +635,17 @@ public class BitstreamStorageManager
                         "update Bitstream set deleted = '1' where bitstream_id = ? ",
                         id);
     }
+
+   public static void deleteForever(Context context, int id) throws SQLException
+   {
+      DatabaseManager.updateQuery(context,
+              "update Bundle set primary_bitstream_id=null where primary_bitstream_id = ? ",
+              id);
+
+      DatabaseManager.updateQuery(context,
+              "delete from Bitstream where bitstream_id = ? ",
+              id);
+   }
 
     /**
      * Clean up the bitstream storage area. This method deletes any bitstreams

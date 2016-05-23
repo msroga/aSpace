@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <artifactId>dspace-anonim</artifactId>
+    <name>DSpace Anonymization</name>
+    <packaging>jar</packaging>
+    <description>DSpace Services</description>
+
+    <parent>
+        <artifactId>dspace-parent</artifactId>
+        <groupId>org.dspace</groupId>
+        <version>5.4</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <properties>
+        <!-- This is the path to the root [dspace-src] directory. -->
+        <root.basedir>${basedir}/..</root.basedir>
+    </properties>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/java</directory>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+        </resources>
+        <testResources>
+            <testResource>
+                <directory>src/test/java</directory>
+            </testResource>
+            <testResource>
+                <directory>src/test/resources</directory>
+            </testResource>
+        </testResources>
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.dspace</groupId>
+            <artifactId>dspace-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.dspace</groupId>
+            <artifactId>dspace-api-lang</artifactId>
+        </dependency>
+
+        <!-- Additional For Anonimization-->
+        <dependency>
+            <groupId>org.bytedeco</groupId>
+            <artifactId>javacv</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>nu.pattern</groupId>
+            <artifactId>opencv</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>net.sourceforge.tess4j</groupId>
+            <artifactId>tess4j</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>

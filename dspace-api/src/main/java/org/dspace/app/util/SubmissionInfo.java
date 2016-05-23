@@ -7,23 +7,21 @@
  */
 package org.dspace.app.util;
 
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-
 import org.apache.log4j.Logger;
 import org.dspace.content.Bitstream;
 import org.dspace.content.Bundle;
 import org.dspace.content.InProgressSubmission;
-
 import org.dspace.submit.AbstractProcessingStep;
 import org.dspace.workflow.WorkflowItem;
 import org.dspace.xmlworkflow.storedcomponents.XmlWorkflowItem;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Information about an item being editing with the submission UI
@@ -76,6 +74,8 @@ public class SubmissionInfo extends HashMap
     
     /** Reader for submission process configuration file * */
     private static SubmissionConfigReader submissionConfigReader;
+
+   private boolean anonymize = false; //anonymimize proces
     
     /**
      * Default Constructor - PRIVATE
@@ -107,8 +107,14 @@ public class SubmissionInfo extends HashMap
      */
     public static SubmissionInfo load(HttpServletRequest request, InProgressSubmission subItem) throws ServletException
     {
+       return load(request, subItem, false);
+    }
+
+    public static SubmissionInfo load(HttpServletRequest request, InProgressSubmission subItem, boolean anonymize) throws ServletException
+    {
         boolean forceReload = false;
     	SubmissionInfo subInfo = new SubmissionInfo();
+       subInfo.setAnonymize(anonymize);
         
         // load SubmissionConfigReader only the first time
         // or if we're using a different UI now.
@@ -612,7 +618,7 @@ public class SubmissionInfo extends HashMap
             // (by reading the XML config file)
             subInfo.submissionConfig = submissionConfigReader
                     .getSubmissionConfig(subInfo.getCollectionHandle(), subInfo
-                            .isInWorkflow());
+                            .isInWorkflow(), subInfo.isAnonymize());
 
             // cache this new submission process configuration
             saveSubmissionConfigToCache(request.getSession(),
@@ -698,6 +704,15 @@ public class SubmissionInfo extends HashMap
             return null;
         }
     }
-    
+
+   public boolean isAnonymize()
+   {
+      return anonymize;
+   }
+
+   public void setAnonymize(boolean anonymize)
+   {
+      this.anonymize = anonymize;
+   }
 }
 
