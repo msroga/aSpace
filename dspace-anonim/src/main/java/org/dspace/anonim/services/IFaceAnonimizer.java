@@ -1,5 +1,7 @@
 package org.dspace.anonim.services;
 
+import net.sourceforge.tess4j.TesseractException;
+
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -8,5 +10,5 @@ import java.io.InputStream;
  */
 public interface IFaceAnonimizer
 {
-   InputStream findAndBlurFaces(InputStream inputStream, String ext) throws IOException;
+   InputStream anonymize(InputStream inputStream, String ext) throws IOException, TesseractException;
 }

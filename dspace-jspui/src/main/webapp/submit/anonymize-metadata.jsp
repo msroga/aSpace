@@ -344,9 +344,15 @@
             name.append(Utils.addEntities(dpn.getLastName()))
                 .append(' ')
                 .append(Utils.addEntities(dpn.getFirstNames()));
-             sb.append("<div class=\"col-sm-2\">");
+             sb.append("<div class=\"col-sm-2\" style=\"padding: 0px\">");
+
+             // put a revert button next to filled in values
+             sb.append("<button class=\"btn btn-default pull-right col-md-2\" style=\"padding-left: 0px; padding-right: 0px; \" name=\"revert_")
+                     .append("\"><span class=\"glyphicon glyphicon-inbox\"></span>")
+                     .append("</button>");
+
             // put a remove button next to filled in values
-            sb.append("<button class=\"btn btn-danger pull-right col-md-10\" name=\"submit_")
+            sb.append("<button class=\"btn btn-danger pull-right col-md-10\" style=\"padding-left: 0px; padding-right: 0px; \" name=\"submit_")
               .append(fieldName)
               .append("_remove_")
               .append(i)
@@ -354,10 +360,6 @@
               .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.remove"))
               .append("\"><span class=\"glyphicon glyphicon-trash\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.remove")+"</button>");
 
-             // put a revert button next to filled in values
-             sb.append("<button class=\"btn btn-default pull-right col-md-2\" name=\"revert_")
-                     .append("\"><span class=\"glyphicon glyphicon-inbox\"></span>")
-                     .append("</button>");
              sb.append("</div>");
          }
          else if (repeatable && !readonly && i == fieldCount - 1)

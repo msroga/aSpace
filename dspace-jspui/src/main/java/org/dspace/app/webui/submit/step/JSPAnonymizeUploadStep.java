@@ -8,7 +8,9 @@
 package org.dspace.app.webui.submit.step;
 
 import com.google.gson.Gson;
+import net.sourceforge.tess4j.TesseractException;
 import org.apache.log4j.Logger;
+import org.dspace.anonim.services.IFaceAnonimizer;
 import org.dspace.app.sherpa.submit.SHERPASubmitService;
 import org.dspace.app.util.DCInputsReader;
 import org.dspace.app.util.DCInputsReaderException;
@@ -26,11 +28,14 @@ import org.dspace.core.Context;
 import org.dspace.core.LogManager;
 import org.dspace.submit.step.UploadStep;
 import org.dspace.utils.DSpace;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.context.support.SpringBeanAutowiringSupport;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.InputStream;
 import java.sql.SQLException;
 
 /**
@@ -70,7 +75,7 @@ public class JSPAnonymizeUploadStep extends JSPStep
     private static final String CHOOSE_FILE_JSP = "/submit/choose-file.jsp";
 
     /** JSP to show files that were uploaded * */
-    private static final String UPLOAD_LIST_JSP = "/submit/upload-file-list.jsp";
+    private static final String UPLOAD_LIST_JSP = "/submit/anonymize-file-list.jsp";
 
     /** JSP to single file that was upload * */
     private static final String UPLOAD_FILE_JSP = "/submit/show-uploaded-file.jsp";
@@ -96,7 +101,15 @@ public class JSPAnonymizeUploadStep extends JSPStep
     /** log4j logger */
     private static Logger log = Logger.getLogger(JSPAnonymizeUploadStep.class);
 
-    /**
+   @Autowired
+   private IFaceAnonimizer faceAnonimizer;
+
+   public JSPAnonymizeUploadStep()
+   {
+      SpringBeanAutowiringSupport.processInjectionBasedOnCurrentContext(this);
+   }
+
+   /**
      * Do any pre-processing to determine which JSP (if any) is used to generate
      * the UI for this step. This method should include the gathering and
      * validating of all data required by the JSP. In addition, if the JSP
@@ -416,6 +429,86 @@ public class JSPAnonymizeUploadStep extends JSPStep
             subInfo.setBitstream(bitstream);
             showGetFileFormat(context, request, response, subInfo);
         }
+        else if (buttonPressed.startsWith("submit_anonymize_"))
+        {
+           // A "format is wrong" button must have been pressed
+           Bitstream bitstream;
+
+           // Which bitstream does the user want to describe?
+           try
+           {
+              int id = Integer.parseInt(buttonPressed.substring(17));
+              bitstream = Bitstream.find(context, id);
+           }
+           catch (NumberFormatException nfe)
+           {
+              bitstream = null;
+           }
+
+           if (bitstream == null)
+           {
+              // Invalid or mangled bitstream ID
+              // throw an error and return immediately
+              log.warn(LogManager.getHeader(context, "integrity_error",
+                      UIUtil.getRequestLogInfo(request)));
+              JSPManager.showIntegrityError(request, response);
+           }
+
+           processAnonymization(context, bitstream);
+
+           String contentType = request.getContentType();
+           boolean fileUpload = false;
+
+           // if multipart form, then we just finished a file upload
+           if ((contentType != null) && (contentType.indexOf("multipart/form-data") != -1))
+           {
+              fileUpload = true;
+           }
+
+           // show the appropriate upload page
+           // (based on if a file has just been uploaded or not)
+           showUploadPage(context, request, response, subInfo, fileUpload);
+        }
+        else if (buttonPressed.startsWith("submit_revert_"))
+        {
+           // A "format is wrong" button must have been pressed
+           Bitstream bitstream;
+
+           // Which bitstream does the user want to describe?
+           try
+           {
+              int id = Integer.parseInt(buttonPressed.substring(14));
+              bitstream = Bitstream.find(context, id);
+           }
+           catch (NumberFormatException nfe)
+           {
+              bitstream = null;
+           }
+
+           if (bitstream == null)
+           {
+              // Invalid or mangled bitstream ID
+              // throw an error and return immediately
+              log.warn(LogManager.getHeader(context, "integrity_error",
+                      UIUtil.getRequestLogInfo(request)));
+              JSPManager.showIntegrityError(request, response);
+           }
+
+           processRevertAnonymization(context, bitstream);
+
+           String contentType = request.getContentType();
+           boolean fileUpload = false;
+
+           // if multipart form, then we just finished a file upload
+           if ((contentType != null) && (contentType.indexOf("multipart/form-data") != -1))
+           {
+              fileUpload = true;
+           }
+
+           // show the appropriate upload page
+           // (based on if a file has just been uploaded or not)
+           showUploadPage(context, request, response, subInfo, fileUpload);
+        }
         else
         {
             // BY DEFAULT: just display either the first upload page or the
@@ -436,7 +529,7 @@ public class JSPAnonymizeUploadStep extends JSPStep
         }
     }
 
-    /**
+   /**
      * Display the appropriate upload page in the file upload sequence. Which
      * page this is depends on whether the user has uploaded any files in this
      * item already.
@@ -653,4 +746,76 @@ public class JSPAnonymizeUploadStep extends JSPStep
     {
         return REVIEW_JSP;
     }
+
+      private void processAnonymization(Context context, Bitstream bitstream)
+              throws SQLException, IOException, AuthorizeException
+      {
+         if (bitstream != null)
+         {
+
+            // Check whether we got a License and if it should be displayed
+            // (Note: list of bundles may be empty array, if a bitstream is a Community/Collection logo)
+            Bundle bundle = bitstream.getBundles().length>0 ? bitstream.getBundles()[0] : null;
+
+            InputStream result = null;
+            try
+            {
+               result = faceAnonimizer.anonymize(bitstream.retrieve(),
+                       "." + bitstream.getFormat().getExtensions()[0]);
+
+               BitstreamBackup bitstreamBackup = BitstreamBackup.create(context, bitstream); //backup
+               bundle.removeBitstream(bitstream);
+               bitstream.deleteForever(); //delete orginal
+               Bitstream anonimized = Bitstream.create(context, result); //create anonimized
+               anonimized.setFormat(bitstreamBackup.getFormat());
+               anonimized.setName(bitstreamBackup.getName());
+               anonimized.setDescription(bitstreamBackup.getDescription());
+               anonimized.update();
+               bitstreamBackup.setAnonimizedID(anonimized.getID());
+               bitstreamBackup.update();
+               bundle.addBitstream(anonimized); //add new bitstream
+               bundle.update();
+
+               // commit all changes to database
+               context.commit();
+            }
+            catch (TesseractException e)
+            {
+               log.error("ocr failed", e);
+               e.printStackTrace();
+            }
+//         request.setAttribute("workflow.item", workflowItem);
+//            JSPManager.showJSP(request, response, "/mydspace/perform-task.jsp");
+         }
+      }
+
+   private void processRevertAnonymization(Context context, Bitstream bitstream)
+           throws SQLException, IOException, AuthorizeException
+   {
+      if (bitstream != null)
+      {
+
+         BitstreamBackup bitstreamBackup = BitstreamBackup.findByAnonymized(context, bitstream.getID());
+
+         if (bitstreamBackup != null)
+         {
+            // Check whether we got a License and if it should be displayed
+            // (Note: list of bundles may be empty array, if a bitstream is a Community/Collection logo)
+            Bundle bundle = bitstream.getBundles().length > 0 ? bitstream.getBundles()[0] : null;
+
+            bundle.removeBitstream(bitstream);
+            Bitstream old = Bitstream.revert(context, bitstreamBackup);
+            old.setName(bitstream.getName());
+            old.update();
+            //         old.replaceMetadataValue();//todo
+            bundle.addBitstream(old);
+            bundle.update();
+            bitstreamBackup.delete();
+            bitstream.deleteForever();
+
+            // commit all changes to database
+            context.commit();
+         }
+      }
+   }
 }

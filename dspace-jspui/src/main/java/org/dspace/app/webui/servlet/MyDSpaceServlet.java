@@ -9,6 +9,7 @@ package org.dspace.app.webui.servlet;
 
 import org.apache.log4j.Logger;
 import org.dspace.anonim.services.IFaceAnonimizer;
+import org.dspace.anonim.services.IMetadataAnonimizer;
 import org.dspace.anonim.services.impl.FaceAnonimizerImpl;
 import org.dspace.app.itemexport.ItemExport;
 import org.dspace.app.itemexport.ItemExportException;
@@ -103,7 +104,7 @@ public class MyDSpaceServlet extends DSpaceServlet
    public static final int REQUEST_BATCH_IMPORT_ACTION = 7;
 
    @Autowired
-   private IFaceAnonimizer faceAnonimizer;
+   private IMetadataAnonimizer metadataAnonimizer;
 
    @Override
    public void init() throws ServletException
@@ -520,13 +521,13 @@ public class MyDSpaceServlet extends DSpaceServlet
       }
       else if (buttonPressed.equals("submit_anonymization"))
       {
-         //Myo: Anonimization for all bitstreams
-//         Item item = workflowItem.getItem();
-//         processAnnonymization(context, item);
+         //MYO METADATA
+         Item item = workflowItem.getItem();
+
+         processAnnonymization(context, item);
 //         request.setAttribute("workflow.item", workflowItem);
 //         JSPManager.showJSP(request, response, "/mydspace/perform-task.jsp");
 
-         //TODO: MYO Forward to the annonimize metadata page
          response.sendRedirect(response.encodeRedirectURL(request
                  .getContextPath()
                  + "/submit?workflow=" + workflowItem.getID() + "&anonymization=true"));
@@ -973,77 +974,14 @@ public class MyDSpaceServlet extends DSpaceServlet
       JSPManager.showJSP(request, response, "/mydspace/own-submissions.jsp");
    }
 
-   private void processAnnonymization(Context context, Item item)
+   private void processAnnonymization(Context context, Item item) throws SQLException, AuthorizeException
    {
-      //todo: get the file, and anonimize, better anonimize metadata
+      //MYO anonimize metadata
       // Get all the metadata
       Metadatum[] values = item.getMetadata(Item.ANY, Item.ANY, Item.ANY, Item.ANY);
-
-      try
-      {
-         Bundle[] bundles = item.getBundles("ORIGINAL");
-
-         boolean filesExist = false;
-
-         for (Bundle bnd : bundles)
-         {
-            filesExist = bnd.getBitstreams().length > 0;
-            if (filesExist)
-            {
-               break;
-            }
-         }
-
-         // if user already has uploaded at least one file
-         if (filesExist)
-         {
-//            String handle = item.getHandle();
-//            Bitstream primaryBitstream = null;
-//
-//            Bundle[] bunds = item.getBundles("ORIGINAL");
-//            Bundle[] thumbs = item.getBundles("THUMBNAIL");
-//
-//            // if item contains multiple bitstreams, display bitstream
-//            // description
-//            boolean multiFile = false;
-//            Bundle[] allBundles = item.getBundles();
-//
-//            for (int i = 0, filecount = 0; (i < allBundles.length)
-//                    && !multiFile; i++)
-//            {
-//               filecount += allBundles[i].getBitstreams().length;
-//               multiFile = (filecount > 1);
-//            }
-
-            for (int i = 0; i < bundles.length; i++)
-            {
-               Bitstream[] bitstreams = bundles[i].getBitstreams();
-               InputStream inputStream = bitstreams[0].retrieve();
-               BitstreamFormat format = bitstreams[0].getFormat();
-               String name = bitstreams[0].getName();
-               String desc = bitstreams[0].getDescription();
-               inputStream = faceAnonimizer.findAndBlurFaces(inputStream, ".jpg");
-
-//               /bundles[i].removeBitstream(bitstreams[0]);
-//               Bitstream b = bundles[i].createBitstream(inputStream);
-               Bitstream b = Bitstream.create(context, inputStream);
-               b.setFormat(format);
-               b.setName(name);
-               b.setDescription(desc);
-               b.update();
-               bundles[i].addBitstream(b);
-               bundles[i].update();
-
-               // commit all changes to database
-               context.commit();
-            }
-         }
-      }
-      catch (Exception e)
-      {
-         //fixme
-         e.printStackTrace();
-      }
-
+      metadataAnonimizer.anonymize(values);
+      item.setMetadata(Arrays.asList(values));
+      item.update();
+      context.commit();
    }
 }

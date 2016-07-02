@@ -16,4 +16,7 @@
     <bean id="faceAnonimizer" class="org.dspace.anonim.services.impl.FaceAnonimizerImpl">
     </bean>
 
+    <bean id="metadatanonimizer" class="org.dspace.anonim.services.impl.MetadataAnonimizerImpl">
+    </bean>
+
 </beans>

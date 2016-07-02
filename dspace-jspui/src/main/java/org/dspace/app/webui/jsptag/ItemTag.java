@@ -882,17 +882,7 @@ public class ItemTag extends TagSupport
             		out.print("\">"
                         + LocaleSupport.getLocalizedMessage(pageContext,
                                 "org.dspace.app.webui.jsptag.ItemTag.view")
-                        + "</a>");
-                  out.print("<a class=\"btn btn- primary\" href=\"" +
-                          request.getContextPath() + "/" + handle + "/" +
-                          UIUtil.encodeBitstreamName(primaryBitstream.getName(), Constants.DEFAULT_ENCODING) + "\">" +
-                          LocaleSupport.getLocalizedMessage(pageContext,"org.dspace.app.webui.jsptag.ItemTag.anonymize")+
-                          "</a>");
-                  out.print("<a class=\"btn btn- primary\" href=\"\">" +
-                          request.getContextPath() + "/" + handle + "/" +
-                          UIUtil.encodeBitstreamName(primaryBitstream.getName(), Constants.DEFAULT_ENCODING) + "\">" +
-                          LocaleSupport.getLocalizedMessage(pageContext,"org.dspace.app.webui.jsptag.ItemTag.revert")+
-                          "</a></td></tr>");
+                        + "</a></td></tr>");
             	}	
             	else
             	{
@@ -1002,33 +992,6 @@ public class ItemTag extends TagSupport
                                                             pageContext,
                                                             "org.dspace.app.webui.jsptag.ItemTag.view")
                                             + "</a>");
-
-                           out.print("<a class=\"btn btn-primary\" href=\""
-                                           + request.getContextPath()
-                                           + "/anonymize/do?handle="
-                                           + handle
-                                           + "&bitstream-id="
-                                           + bitstreams[k].getID()
-                                           + "&name="
-                                           + UIUtil.encodeBitstreamName(bitstreams[k].getName(), Constants.DEFAULT_ENCODING)
-                                           + "&item-id="
-                                           + getItem().getID()
-                                           + "\">" +
-                                   LocaleSupport.getLocalizedMessage(pageContext,"org.dspace.app.webui.jsptag.ItemTag.anonymize")+
-                                   "</a>");
-                           out.print("<a class=\"btn btn-primary\" href=\""
-                                           + request.getContextPath()
-                                           + "/anonymize/revert?handle="
-                                           + handle
-                                           + "&bitstream-id="
-                                           + bitstreams[k].getID()
-                                           + "&name="
-                                           + UIUtil.encodeBitstreamName(bitstreams[k].getName(), Constants.DEFAULT_ENCODING)
-                                           + "&item-id="
-                                           + getItem().getID()
-                                           + "\">" +
-                                   LocaleSupport.getLocalizedMessage(pageContext,"org.dspace.app.webui.jsptag.ItemTag.revert")+
-                                   "</a>");
             					
 								try {
 									if (showRequestCopy && !AuthorizeManager
