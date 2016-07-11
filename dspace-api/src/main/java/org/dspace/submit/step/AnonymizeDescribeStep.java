@@ -9,6 +9,7 @@ package org.dspace.submit.step;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+import org.dspace.anonymiztion.TextInterpreter;
 import org.dspace.app.util.*;
 import org.dspace.authorize.AuthorizeException;
 import org.dspace.content.*;
@@ -24,6 +25,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -207,7 +210,7 @@ public class AnonymizeDescribeStep extends AbstractProcessingStep
             String inputType = inputs[j].getInputType();
             if (inputType.equals("name"))
             {
-                readNames(request, item, schema, element, qualifier, inputs[j]
+                readNames(context, request, item, schema, element, qualifier, inputs[j]
                         .getRepeatable());
             }
             else if (inputType.equals("date"))
@@ -256,8 +259,7 @@ public class AnonymizeDescribeStep extends AbstractProcessingStep
                             + element + "_remove_" + z)
                             && !thisVal.equals(""))
                     {
-                        item.addMetadata(schema, element, thisQual, null,
-                                thisVal);
+                       item.addMetadata(schema, element, thisQual, null, thisVal);
                     }
                 }
             }
@@ -265,7 +267,7 @@ public class AnonymizeDescribeStep extends AbstractProcessingStep
                     || (inputType.equals("twobox"))
                     || (inputType.equals("textarea")))
             {
-                readText(request, item, schema, element, qualifier, inputs[j]
+                readText(context, request, item, schema, element, qualifier, inputs[j]
                         .getRepeatable(), LANGUAGE_QUALIFIER);
             }
             else
@@ -495,8 +497,9 @@ public class AnonymizeDescribeStep extends AbstractProcessingStep
      * @param repeated
      *            set to true if the field is repeatable on the form
      */
-    protected void readNames(HttpServletRequest request, Item item,
+    protected void readNames(Context context, HttpServletRequest request, Item item,
             String schema, String element, String qualifier, boolean repeated)
+            throws SQLException, IOException, AuthorizeException
     {
         String metadataField = MetadataField
                 .formKey(schema, element, qualifier);
@@ -531,6 +534,8 @@ public class AnonymizeDescribeStep extends AbstractProcessingStep
             // once the DSpace JSP UI is obsolete!
             String buttonPressed = Util.getSubmitButton(request, "");
             String removeButton = "submit_" + metadataField + "_remove_";
+            String anonymizeButton = "submit_" + metadataField + "_anonymize_";
+            String revertButton = "submit_" + metadataField + "_revert_";
 
             if (buttonPressed.startsWith(removeButton))
             {
@@ -548,6 +553,26 @@ public class AnonymizeDescribeStep extends AbstractProcessingStep
                     }
                 }
             }
+           else if (buttonPressed.startsWith(anonymizeButton))
+           {
+              int idx = Integer.parseInt(buttonPressed.substring(anonymizeButton.length()));
+              String oldFirst = firsts.get(idx);
+              String newFirst = oldFirst.substring(0,1) + ".";
+              firsts.set(idx, newFirst);
+              String oldLast = lasts.get(idx);
+              String newLast = oldLast.substring(0,1) + ".";
+              lasts.set(idx, newLast);
+           }
+           else if (buttonPressed.startsWith(revertButton))
+           {
+              MetadataField field = MetadataField.findByElement(context, MetadataSchema.find(context, schema).getSchemaID(), element, qualifier);
+              List<MetadataBackup> list =  MetadataBackup.findBy(context, item.getID(), field.getFieldID());
+              int idx = Integer.parseInt(buttonPressed.substring(revertButton.length()));
+              MetadataBackup backup = list.get(idx);
+              String[] values = backup.value.split(",");
+              firsts.set(idx, values[1].trim());
+              lasts.set(idx, values[0].trim());
+           }
         }
         else
         {
@@ -664,13 +689,15 @@ public class AnonymizeDescribeStep extends AbstractProcessingStep
      * @param lang
      *            language to set (ISO code)
      */
-    protected void readText(HttpServletRequest request, Item item, String schema,
+    protected void readText(Context context, HttpServletRequest request, Item item, String schema,
             String element, String qualifier, boolean repeated, String lang)
+            throws SQLException, IOException, AuthorizeException
     {
         // FIXME: Of course, language should be part of form, or determined
         // some other way
-        String metadataField = MetadataField
-                .formKey(schema, element, qualifier);
+        String metadataField = MetadataField.formKey(schema, element, qualifier);
+       String buttonPressed = Util.getSubmitButton(request, "");
+       String removeButton = "submit_" + metadataField + "_remove_";
 
         String fieldKey = MetadataAuthorityManager.makeFieldKey(schema, element, qualifier);
         boolean isAuthorityControlled = MetadataAuthorityManager.getManager().isAuthorityControlled(fieldKey);
@@ -693,8 +720,7 @@ public class AnonymizeDescribeStep extends AbstractProcessingStep
             // TODO: These separate remove buttons are only relevant
             // for DSpace JSP UI, and the code below can be removed
             // once the DSpace JSP UI is obsolete!
-            String buttonPressed = Util.getSubmitButton(request, "");
-            String removeButton = "submit_" + metadataField + "_remove_";
+
 
             if (buttonPressed.startsWith(removeButton))
             {
@@ -732,6 +758,9 @@ public class AnonymizeDescribeStep extends AbstractProcessingStep
         // Remove existing values, already done in doProcessing see also bug DS-203
         // item.clearMetadata(schema, element, qualifier, Item.ANY);
 
+       String anonymizeButton = "submit_" + metadataField + "_anonymize_";
+       String revertButton = "submit_" + metadataField + "_revert_";
+
         // Put the names in the correct form
         for (int i = 0; i < vals.size(); i++)
         {
@@ -739,27 +768,23 @@ public class AnonymizeDescribeStep extends AbstractProcessingStep
             String s = vals.get(i);
             if ((s != null) && !s.equals(""))
             {
-                if (isAuthorityControlled)
-                {
-                    String authKey = auths.size() > i ? auths.get(i) : null;
-                    String sconf = (authKey != null && confs.size() > i) ? confs.get(i) : null;
-                    if (MetadataAuthorityManager.getManager().isAuthorityRequired(fieldKey) &&
-                        (authKey == null || authKey.length() == 0))
-                    {
-                        log.warn("Skipping value of "+metadataField+" because the required Authority key is missing or empty.");
-                        addErrorField(request, metadataField);
-                    }
-                    else
-                    {
-                        item.addMetadata(schema, element, qualifier, lang, s,
-                                authKey, (sconf != null && sconf.length() > 0) ?
-                                        Choices.getConfidenceValue(sconf) : Choices.CF_ACCEPTED);
-                    }
-                }
-                else
-                {
-                    item.addMetadata(schema, element, qualifier, lang, s);
-                }
+               if (buttonPressed.startsWith(anonymizeButton))
+               {
+                  String news = anonymize(schema, element, qualifier, s);
+                  item.addMetadata(schema, element, qualifier, lang, news);
+               }
+               else if (buttonPressed.startsWith(revertButton))
+               {
+                  MetadataField field = MetadataField.findByElement(context, MetadataSchema.find(context, schema).getSchemaID(), element, qualifier);
+                  List<MetadataBackup> list =  MetadataBackup.findBy(context, item.getID(), field.getFieldID());
+                  int idx = Integer.parseInt(buttonPressed.substring(revertButton.length()));
+                  MetadataBackup backup = list.get(idx);
+                  item.addMetadata(schema, element, qualifier, lang, backup.getValue());
+               }
+               else
+               {
+                  item.addMetadata(schema, element, qualifier, lang, s);
+               }
             }
         }
     }
@@ -1013,4 +1038,46 @@ public class AnonymizeDescribeStep extends AbstractProcessingStep
         }
 
     }
+
+
+   private String anonymize(String schema, String element, String qualifer, String value)
+   {
+      TextInterpreter interpeter = TextInterpreter.getInstance();
+
+      StringBuilder sb = new StringBuilder();
+      if (element.equalsIgnoreCase("contributor")) //metadatum.element.equalsIgnoreCase("author")
+      {
+         String[] names = org.apache.commons.lang3.StringUtils.split(value, ", ");
+         Iterator<String> it = Arrays.asList(names).iterator();
+         while (it.hasNext())
+         {
+            String name = it.next().replaceAll("\\s+","");
+            sb.append(name.substring(0, 1));
+            if (it.hasNext())
+            {
+               sb.append("., ");
+            }
+            else
+            {
+               sb.append(".");
+            }
+         }
+         return sb.toString();
+      }
+      else if (element.equalsIgnoreCase("title"))
+      {
+         String[] words = org.apache.commons.lang3.StringUtils.split(value, ", ");
+         for (String word : words)
+         {
+            if (interpeter.isName(word))
+            {
+               String newWord = word.substring(0, 1);
+               org.apache.commons.lang3.StringUtils.replace(value, word, newWord);
+            }
+         }
+         sb.append(value);
+      }
+
+      return sb.toString();
+   }
 }

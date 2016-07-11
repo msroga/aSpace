@@ -3,6 +3,7 @@ package org.dspace.anonim.services.impl;
 import net.sourceforge.tess4j.ITesseract;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
+import org.apache.commons.lang3.StringUtils;
 import org.dspace.anonim.services.IFaceAnonimizer;
 import org.dspace.anonim.services.ImageProcessor;
 import org.dspace.anonim.services.TextInterpreter;
@@ -21,6 +22,7 @@ import java.awt.image.BufferedImage;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * Created by Marek on 2016-03-27.
@@ -30,7 +32,11 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
 {
    private static ITesseract tesseract;
 
-   private TextInterpreter textInterpreter = TextInterpreter.getInstance();
+   private static TextInterpreter textInterpreter = TextInterpreter.getInstance();
+
+   private static CascadeClassifier faceDetector;
+
+   private static Pattern pattern = Pattern.compile("\\.*[a-zA-Z0-9]\\.*");
 
    @Override
    public void afterPropertiesSet() throws Exception
@@ -42,6 +48,7 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
       tesseract = new Tesseract();  // JNA Interface Mapping
       tesseract.setDatapath(tesseractPath);
       tesseract.setLanguage(tesseractLang);
+      faceDetector = new CascadeClassifier("C:/dspace/haarcascade_frontalface_alt.xml");
    }
 
    @Override
@@ -56,24 +63,31 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
       return imageProcessor.getResult();
    }
 
-   public static void findAndBlurFaces(ImageProcessor processor) throws IOException
+   private static void findAndBlurFaces(Mat image) throws IOException
    {
-      Mat image = processor.getImage();
-      CascadeClassifier faceDetector = new CascadeClassifier("C:/dspace/haarcascade_frontalface_alt.xml");
-
       MatOfRect faceDetections = new MatOfRect();
       faceDetector.detectMultiScale(image, faceDetections);
-
 
       for (Rect rect : faceDetections.toArray()) {
          rect.width = rect.width % 2 == 1 ? rect.width : rect.width + 1;
          rect.height = rect.height % 2 == 1 ? rect.height : rect.height + 1;
          Imgproc.GaussianBlur(image.submat(rect), image.submat(rect), new Size(rect.width, rect.height), 55);
       }
-      processor.save();
    }
 
-   public void findAndBlurText(ImageProcessor imageProcessor) throws IOException, TesseractException
+   public static void findAndBlurFaces(ImageProcessor imageProcessor) throws IOException
+   {
+      Mat image = imageProcessor.getImage();
+      for (int i = 0 ; i < 4; i++)
+      {
+         Core.transpose(image, image);
+         Core.flip(image, image, 1);
+         findAndBlurFaces(image);
+      }
+      imageProcessor.save();
+   }
+
+   public static void findAndBlurText(ImageProcessor imageProcessor) throws IOException, TesseractException
    {
       Mat image = imageProcessor.getImage();
       Mat src_gray = imageProcessor.getGrayImage();
@@ -124,54 +138,132 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
       imageProcessor.save();
    }
 
-   private boolean isSensitiveData(String result)
+   public static void testFindAndBlurText(ImageProcessor imageProcessor) throws IOException, TesseractException
    {
-      if (textInterpreter.interprete(result) != null)
+      Mat image = imageProcessor.getImage();
+//      System.out.println("rows: " + image.rows() + " cols: " + image.cols());
+//      System.out.println("height: " + image.height() + " width: " + image.width());
+      Mat src_gray = imageProcessor.getGrayImage();
+      Imgproc.cvtColor(image, src_gray, Imgproc.COLOR_RGB2GRAY);
+
+      Mat counturs = new Mat();
+      Mat morphKernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(6,6));
+      Imgproc.morphologyEx(src_gray, counturs, Imgproc.MORPH_GRADIENT, morphKernel); //kontury
+
+      Mat readable = new Mat();
+      Mat bw = new Mat();
+
+      Imgproc.threshold(counturs, readable, 128, 255, Imgproc.THRESH_BINARY);//wersja readable
+      Imgproc.GaussianBlur(readable, bw, new Size(25, 25), 0);
+      Imgproc.threshold(bw, bw, 128, 255, Imgproc.THRESH_OTSU);
+      Imgproc.threshold(bw, bw, 128, 255, Imgproc.THRESH_BINARY | Imgproc.THRESH_OTSU);
+
+
+      morphKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(15,2));
+      Mat connected = new Mat();
+      Imgproc.morphologyEx(bw, connected, Imgproc.MORPH_CLOSE, morphKernel);
+
+      morphKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(30,1));
+      Imgproc.dilate(connected, connected, morphKernel);
+
+      Mat mask = Mat.zeros(bw.size(), CvType.CV_8UC1);
+      List<MatOfPoint> contours = new ArrayList<>();
+
+      MatOfInt4 hierarchy = new MatOfInt4();
+      Imgproc.findContours(connected, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE, new Point(0,0));
+
+      MatOfByte file = new MatOfByte();
+      Highgui.imencode(imageProcessor.getExtension(), src_gray, file);
+      BufferedImage inputImage = ImageIO.read(new ByteArrayInputStream(file.toArray()));
+      long timeOCR = 0;
+      for (int idx = 0; idx < hierarchy.total(); idx ++)
+      {
+         MatOfPoint point = contours.get(idx);
+         Rect rect = Imgproc.boundingRect(point);
+         Imgproc.drawContours(mask, contours, idx, new Scalar(255, 255, 255), Core.FILLED);
+
+//            rect.width = rect.width % 2 == 1 ? rect.width : rect.width + 1;
+//            rect.height = rect.height % 2 == 1 ? rect.height : rect.height + 1;
+//            Core.rectangle(image, rect.br(), rect.tl(), new Scalar(255, 255, 0));
+
+         if (rect.height > 15 && rect.height < rect.width)
+         {
+            long tStart = System.currentTimeMillis();
+            String result = tesseract.doOCR(inputImage, new Rectangle(rect.x, rect.y, rect.width, rect.height));
+            long tEnd = System.currentTimeMillis();
+            timeOCR += (tEnd - tStart);
+           // System.out.println(">>>" + result);
+
+            if (StringUtils.isNotBlank(result) && pattern.matcher(result).find())
+            {
+               rect.width = rect.width % 2 == 1 ? rect.width : rect.width + 1;
+               rect.height = rect.height % 2 == 1 ? rect.height : rect.height + 1;
+               Core.rectangle(image, rect.br(), rect.tl(), new Scalar(0, 255, 0), 2);
+            }
+//               if (isSensitiveData(result))
+//               {
+//                  rect.width = rect.width % 2 == 1 ? rect.width : rect.width + 1;
+//                  rect.height = rect.height % 2 == 1 ? rect.height : rect.height + 1;
+//                  Imgproc.GaussianBlur(image.submat(rect), image.submat(rect), new Size(rect.width, rect.height), 55);
+//               }
+         }
+      }
+      System.out.println("OCR time[s]: " + timeOCR / 1000.0);
+      imageProcessor.save();
+      //Highgui.imencode(".jpeg", src_gray, imageProcessor.getFile());
+   }
+
+
+   private static boolean isSensitiveData(String result)
+   {
+      if (textInterpreter.interpretate(result) != null)
       {
             return true;
       }
       return false;
    }
 
-   public static void main(String argv[])
+   public static void main2(String argv[])
    {
       try
       {
+//         File file = new File("C:\\Users\\Marek\\Desktop\\mgr\\testy\\ja2.jpg");
+//         File file = new File("C:\\Users\\Marek\\Pictures\\tempates\\Game-Thrones-Comic-Con-Panel-2014.jpg");
          System.load("C:\\Program Files\\opencv\\build\\java\\x64\\opencv_java249.dll");
-         File file = new File("C:\\Users\\Marek\\Pictures\\tempates\\Game-Thrones-Comic-Con-Panel-2014.jpg");
-         ImageProcessor imageProcessor = new ImageProcessor(".jpeg");
-         imageProcessor.loadImage(new FileInputStream(file));
+         faceDetector = new CascadeClassifier("C:/dspace/haarcascade_frontalface_alt.xml");
 
-         findAndBlurFaces(imageProcessor);
-         InputStream result = imageProcessor.save().getResult();
+         String folderPath = "C:\\Users\\Marek\\Desktop\\mgr\\testy\\face";
+         File folder = new File(folderPath);
 
+         for (File file : folder.listFiles())
+         {
+            if (!file.isDirectory())
+            {
+               double size = (file.length() / 1024);
+               System.out.println("procesing " + file.getName() + " size[KB]: " + size);
+               InputStream inputstrem = new FileInputStream(file);
+               ImageProcessor imageProcessor = new ImageProcessor(".jpeg");
+               imageProcessor.loadImage(inputstrem);
 
-//         CascadeClassifier faceDetector = new CascadeClassifier("C:/dspace/haarcascade_frontalface_alt.xml");
-//
-//         MatOfByte mfile = new MatOfByte();
-//         mfile.fromArray(IOUtils.toByteArray(new FileInputStream(file)));
-//         Mat image = Highgui.imdecode(mfile, Highgui.IMREAD_COLOR);
-//
-//         MatOfRect faceDetections = new MatOfRect();
-//         faceDetector.detectMultiScale(image, faceDetections);
-//
-//
-//         for (Rect rect : faceDetections.toArray())
-//         {
-//            rect.width = rect.width % 2 == 1 ? rect.width : rect.width + 1;
-//            rect.height = rect.height % 2 == 1 ? rect.height : rect.height + 1;
-//            Imgproc.GaussianBlur(image.submat(rect), image.submat(rect), new Size(rect.width, rect.height), 55);
-//         }
-//
-//         Highgui.imencode(".jpg", image, mfile);
-//         InputStream result = new ByteArrayInputStream(mfile.toArray());
+               long tStart = System.currentTimeMillis();
+               findAndBlurFaces(imageProcessor);
+               long tEnd = System.currentTimeMillis();
+               double timeSeconds = (tEnd - tStart) / 1000.0;
+               System.out.println("work time [s]: " + timeSeconds);
 
+               InputStream result = imageProcessor.getResult();
+               inputstrem.close();
 
-         FileOutputStream resultFile = new FileOutputStream("C:\\Users\\Marek\\Pictures\\tempates\\resultlip.jpg");
-         int read = 0;
-         byte[] bytes = new byte[1024];
-         while ((read = result.read(bytes)) != -1) {
-            resultFile.write(bytes, 0, read);
+               FileOutputStream resultFile = new FileOutputStream(folderPath + "\\results\\" + file.getName());
+               int read = 0;
+               byte[] bytes = new byte[1024];
+               while ((read = result.read(bytes)) != -1) {
+                  resultFile.write(bytes, 0, read);
+               }
+
+               result.close();
+               resultFile.close();
+            }
          }
       }
       catch (Exception e)
@@ -180,34 +272,102 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
       }
    }
 
-//   public static void main(String argv[])
-//   {
-//      try
-//      {
-//         System.load("C:\\Program Files\\opencv\\build\\java\\x64\\opencv_java249.dll");
-//
-//         tesseract = new Tesseract();  // JNA Interface Mapping
-//         tesseract.setDatapath("C:\\Program Files\\Tesseract OCR");
-//         tesseract.setLanguage("pol");
-//
-////         File fileSource = new File("C:\\Users\\Marek\\Pictures\\tempates\\wiz2.jpg");
-//         File fileSource = new File("C:\\Users\\Marek\\Pictures\\tempates\\auto.jpg");
-////         File fileSource = new File("C:\\Users\\Marek\\Pictures\\tempates\\lista_studentow.jpg");
-//
-//         InputStream result = findAndBlurText(new FileInputStream(fileSource), ".jpg");
-//
-//         FileOutputStream resultFile = new FileOutputStream("C:\\Users\\Marek\\Pictures\\tempates\\resultOCR.jpg");
-//         int read = 0;
-//         byte[] bytes = new byte[1024];
-//
-//         while ((read = result.read(bytes)) != -1) {
-//            resultFile.write(bytes, 0, read);
-//         }
-//
-//
-//      } catch (Exception e) {
-//         System.err.println(e.getMessage());
-//      }
-//   }
+   public static void main(String argv[])
+   {
+      try
+      {
+         System.load("C:\\Program Files\\opencv\\build\\java\\x64\\opencv_java249.dll");
+         tesseract = new Tesseract();  // JNA Interface Mapping
+         tesseract.setDatapath("C:\\Program Files\\Tesseract OCR");
+         tesseract.setLanguage("pol");
 
+         String folderPath = "C:\\Users\\Marek\\Desktop\\mgr\\testy\\text";
+         File folder = new File(folderPath);
+
+         for (File file : folder.listFiles())
+         {
+            if (!file.isDirectory())
+            {
+               double size = (file.length() / 1024);
+               System.out.println("procesing " + file.getName() + " size[KB]: " + size);
+               InputStream inputstrem = new FileInputStream(file);
+
+               ImageProcessor imageProcessor = new ImageProcessor(".jpeg");
+               imageProcessor.loadImage(inputstrem);
+
+               long tStart = System.currentTimeMillis();
+               testFindAndBlurText(imageProcessor);
+               long tEnd = System.currentTimeMillis();
+               double timeSeconds = (tEnd - tStart) / 1000.0;
+               System.out.println("work time [s]: " + timeSeconds);
+               InputStream result = imageProcessor.getResult();
+               inputstrem.close();
+
+               saveFile(result, folderPath + "\\results\\" + file.getName());
+
+               result.close();
+            }
+         }
+
+      } catch (Exception e) {
+         System.err.println(e.getMessage());
+      }
+   }
+
+
+   public static void mainx(String argv[])
+   {
+      try
+      {
+         System.load("C:\\Program Files\\opencv\\build\\java\\x64\\opencv_java249.dll");
+         tesseract = new Tesseract();  // JNA Interface Mapping
+         tesseract.setDatapath("C:\\Program Files\\Tesseract OCR");
+         tesseract.setLanguage("pol");
+
+         String folderPath = "C:\\Users\\Marek\\Desktop\\mgr\\testy\\text";
+         File ifile = new File(folderPath + "\\auto.jpg");
+
+         double size = (ifile.length() / 1024);
+         System.out.println("procesing " + ifile.getName() + " size[KB]: " + size);
+         InputStream inputstrem = new FileInputStream(ifile);
+
+         ImageProcessor imageProcessor = new ImageProcessor(".jpeg");
+         imageProcessor.loadImage(inputstrem);
+
+         long tStart = System.currentTimeMillis();
+         //-----------------------------------------------------------------------------------------------------------
+
+         testFindAndBlurText(imageProcessor);
+
+         //-----------------------------------------------------------------------------------------------------------
+         long tEnd = System.currentTimeMillis();
+         double timeSeconds = (tEnd - tStart) / 1000.0;
+         System.out.println("work time [s]: " + timeSeconds);
+         InputStream result = imageProcessor.getResult();
+         inputstrem.close();
+
+         saveFile(result, folderPath + "\\results\\" + ifile.getName());
+
+         result.close();
+
+      }
+      catch (Exception e)
+      {
+         System.err.println(e.getMessage());
+      }
+   }
+
+
+   private static void saveFile(InputStream result, String path) throws IOException
+   {
+      FileOutputStream resultFile = new FileOutputStream(path);
+      int read = 0;
+      byte[] bytes = new byte[1024];
+
+      while ((read = result.read(bytes)) != -1)
+      {
+         resultFile.write(bytes, 0, read);
+      }
+      resultFile.close();
+   }
 }

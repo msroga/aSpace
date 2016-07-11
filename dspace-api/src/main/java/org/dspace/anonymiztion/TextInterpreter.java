@@ -1,4 +1,4 @@
-package org.dspace.anonim.services;
+package org.dspace.anonymiztion;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
@@ -44,15 +44,7 @@ public class TextInterpreter
 
    private TextInterpreter()
    {
-      String namesDictionaryPath;
-      try
-      {
-         namesDictionaryPath = ConfigurationManager.getProperty("dictionaries.folder.path");
-      }
-      catch (Exception e)
-      {
-         namesDictionaryPath = "C:\\dspace\\names4";
-      }
+      String namesDictionaryPath = ConfigurationManager.getProperty("dictionaries.folder.path");
 
       try
       {
@@ -114,6 +106,11 @@ public class TextInterpreter
          if (result == null && isName(text))
          {
             result = SensitiveType.NAME;
+         }
+
+         if (result == null && isAddress(text))
+         {
+            result = SensitiveType.ADDRESS;
          }
 
          if (result == null && isAddress(text))

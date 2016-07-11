@@ -1,4 +1,4 @@
-package org.dspace.anonim.services;
+package org.dspace.content;
 
 /**
  * Created by Marek on 2016-07-01.

@@ -7,15 +7,6 @@
  */
 package org.dspace.content;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-
 import org.apache.log4j.Logger;
 import org.dspace.app.util.AuthorizeUtil;
 import org.dspace.authorize.AuthorizeConfiguration;
@@ -24,14 +15,14 @@ import org.dspace.authorize.AuthorizeManager;
 import org.dspace.authorize.ResourcePolicy;
 import org.dspace.browse.BrowseException;
 import org.dspace.browse.IndexBrowse;
+import org.dspace.content.authority.ChoiceAuthorityManager;
+import org.dspace.content.authority.Choices;
 import org.dspace.core.Constants;
 import org.dspace.core.Context;
 import org.dspace.core.LogManager;
-import org.dspace.content.authority.Choices;
-import org.dspace.content.authority.ChoiceAuthorityManager;
-import org.dspace.event.Event;
 import org.dspace.eperson.EPerson;
 import org.dspace.eperson.Group;
+import org.dspace.event.Event;
 import org.dspace.handle.HandleManager;
 import org.dspace.identifier.IdentifierException;
 import org.dspace.identifier.IdentifierService;
@@ -40,6 +31,15 @@ import org.dspace.storage.rdbms.TableRow;
 import org.dspace.storage.rdbms.TableRowIterator;
 import org.dspace.utils.DSpace;
 import org.dspace.versioning.VersioningService;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
 
 /**
  * Class representing an item in DSpace.
@@ -107,6 +107,7 @@ public class Item extends DSpaceObject
 
         // Get our Handle if any
         handle = HandleManager.findHandle(context, this);
+        setBackup(false); //set default
 
         // Cache ourselves
         context.cache(this, row.getIntColumn("item_id"));
@@ -373,6 +374,11 @@ public class Item extends DSpaceObject
         return itemRow.getBooleanColumn("withdrawn");
     }
 
+   public boolean isBackup()
+   {
+      return itemRow.getBooleanColumn("backup");
+   }
+
     /**
      * Find out if the item is discoverable
      *
@@ -442,6 +448,11 @@ public class Item extends DSpaceObject
         itemRow.setColumn("discoverable", discoverable);
         modified = true;
     }
+
+   public void setBackup(boolean backup)
+   {
+      itemRow.setColumn("backup", backup);
+   }
 
     /**
      * Set the owning Collection for the item
@@ -1986,4 +1997,27 @@ public class Item extends DSpaceObject
         authorities[i] = c.values.length > 0 ? c.values[0].authority : null;
         confidences[i] = c.confidence;
     }
+
+   public void createBackup(Context context) throws SQLException, AuthorizeException
+   {
+      if (!isBackup())
+      {
+         int i = 0;
+         for (Metadatum metadatum : getMetadata())
+         {
+            MetadataBackup metadata = new MetadataBackup();
+            metadata.setResourceId(getID());
+            metadata.setResourceTypeId(getType());
+            metadata.setFieldId(getMetadataField(metadatum).getFieldID());
+            metadata.setValue(metadatum.value);
+            metadata.setLanguage(metadatum.language);
+            metadata.setPlace(i++);
+            metadata.setAuthority(metadatum.authority);
+            metadata.setConfidence(metadatum.confidence);
+            metadata.create(context);
+         }
+         setBackup(true);
+         update();
+      }
+   }
 }

@@ -178,6 +178,14 @@ public class JSPAnonymizeDescribeStep extends JSPStep
                 showEditMetadata(context, request, response, subInfo);
             }
         }
+        else if (buttonPressed.indexOf("anonymize") > -1)
+        {
+           showEditMetadata(context, request, response, subInfo);
+        }
+        else if (buttonPressed.indexOf("revert") > -1)
+        {
+           showEditMetadata(context, request, response, subInfo);
+        }
     }
 
     /**

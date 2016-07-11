@@ -262,7 +262,7 @@
    	  String authorityType = getAuthorityType(pageContext, fieldName, collectionID);
     	
       Metadatum[] defaults = item.getMetadata(schema, element, qualifier, Item.ANY);
-      int fieldCount = defaults.length + fieldCountIncr;
+      int fieldCount = defaults.length;
       StringBuffer headers = new StringBuffer();
       StringBuffer sb = new StringBuffer();
       org.dspace.content.DCPersonName dpn;
@@ -344,32 +344,24 @@
             name.append(Utils.addEntities(dpn.getLastName()))
                 .append(' ')
                 .append(Utils.addEntities(dpn.getFirstNames()));
-             sb.append("<div class=\"col-sm-2\" style=\"padding: 0px\">");
+             sb.append("<div class=\"col-md-2 pull-right\" style=\"padding: 0px\">");
 
              // put a revert button next to filled in values
-             sb.append("<button class=\"btn btn-default pull-right col-md-2\" style=\"padding-left: 0px; padding-right: 0px; \" name=\"revert_")
-                     .append("\"><span class=\"glyphicon glyphicon-inbox\"></span>")
+
+             sb.append("<button class=\"btn btn-default\"  name=\"submit_")
+                     .append(fieldName)
+                     .append("_anonymize_")
+                     .append(i)
+                     .append("\">Anonym")
+                     .append("</button>");
+             sb.append("<button class=\"btn btn-default\"  name=\"submit_")
+                     .append(fieldName)
+                     .append("_revert_")
+                     .append(i)
+                     .append("\">Revert")
                      .append("</button>");
 
-            // put a remove button next to filled in values
-            sb.append("<button class=\"btn btn-danger pull-right col-md-10\" style=\"padding-left: 0px; padding-right: 0px; \" name=\"submit_")
-              .append(fieldName)
-              .append("_remove_")
-              .append(i)
-              .append("\" value=\"")
-              .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.remove"))
-              .append("\"><span class=\"glyphicon glyphicon-trash\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.remove")+"</button>");
-
              sb.append("</div>");
-         }
-         else if (repeatable && !readonly && i == fieldCount - 1)
-         {
-            // put a 'more' button next to the last space
-            sb.append("<button class=\"btn btn-default pull-right col-md-2\" name=\"submit_")
-              .append(fieldName)
-              .append("_add\" value=\"")
-              .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add"))
-              .append("\"><span class=\"glyphicon glyphicon-plus\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add")+"</button>");
          }
           sb.append("</div>");
       }
@@ -463,27 +455,7 @@
             .append((dateIssued.getYear() > 0 ?
                  String.valueOf(dateIssued.getYear()) : "" ))
             .append("\"/></span></div></div>\n");
-    
-         if (repeatable && !readonly && i < defaults.length)
-         {
-            // put a remove button next to filled in values
-            sb.append("<button class=\"btn btn-danger col-md-2\" name=\"submit_")
-              .append(fieldName)
-              .append("_remove_")
-              .append(i)
-              .append("\" value=\"")
-              .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.remove"))
-              .append("\"><span class=\"glyphicon glyphicon-trash\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.remove")+"</button>");
-         }
-         else if (repeatable && !readonly && i == fieldCount - 1)
-         {
-            // put a 'more' button next to the last space
-            sb.append("<button class=\"btn btn-default col-md-2\" name=\"submit_")
-              .append(fieldName)
-              .append("_add\" value=\"")
-              .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add"))
-              .append("\"><span class=\"glyphicon glyphicon-plus\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add")+"</button>");
-         }
+
          // put a blank if nothing else
          sb.append("</div>");
       }
@@ -522,7 +494,7 @@
            .append("_series");
          if (repeatable && i!= fieldCount)
            sb.append("_").append(i+1);
-         if (readonly)
+         if (readonly || defaults.length == 0)
          {
              sb.append("\" disabled=\"disabled");
          }
@@ -535,7 +507,7 @@
            .append("_number");
          if (repeatable && i!= fieldCount)
            sb.append("_").append(i+1);
-         if (readonly)
+         if (readonly  || defaults.length == 0)
          {
              sb.append("\" disabled=\"disabled");
          }
@@ -545,25 +517,26 @@
            .append(sn.getNumber().replaceAll("\"", "&quot;"))
            .append("\"/></span>\n");
 
-         if (repeatable && !readonly && i < defaults.length)
+         if (defaults.length > 0)
          {
-            // put a remove button next to filled in values
-            sb.append("<button class=\"btn btn-danger col-md-2\" name=\"submit_")
-              .append(fieldName)
-              .append("_remove_")
-              .append(i)
-              .append("\" value=\"")
-              .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.remove"))
-              .append("\"><span class=\"glyphicon glyphicon-trash\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.remove")+"</button>");
-         }
-         else if (repeatable && !readonly && i == fieldCount - 1)
-         {
-            // put a 'more' button next to the last space
-            sb.append("<button class=\"btn btn-default col-md-2\" name=\"submit_")
-              .append(fieldName)
-              .append("_add\" value=\"")
-              .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add"))
-              .append("\"><span class=\"glyphicon glyphicon-plus\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add")+"</button>");
+             sb.append("<div class=\"col-md-2 pull-right\" style=\"padding: 0px\">");
+
+             // put a revert button next to filled in values
+
+             sb.append("<button class=\"btn btn-default\"  name=\"submit_")
+                     .append(fieldName)
+                     .append("_anonymize_")
+                     .append(i)
+                     .append("\">Anonym")
+                     .append("</button>");
+             sb.append("<button class=\"btn btn-default\"  name=\"submit_")
+                     .append(fieldName)
+                     .append("_revert_")
+                     .append(i)
+                     .append("\">Revert")
+                     .append("</button>");
+
+             sb.append("</div>");
          }
 
          // put a blank if nothing else
@@ -616,7 +589,7 @@
          sb.append("<textarea class=\"form-control\" name=\"").append(fieldNameIdx)
            .append("\" rows=\"4\" cols=\"45\" id=\"")
            .append(fieldNameIdx).append("_id\" ")
-           .append((hasVocabulary(vocabulary)&&closedVocabulary)||readonly?" disabled=\"disabled\" ":"")
+           .append((hasVocabulary(vocabulary)&&closedVocabulary)||readonly || (defaults.length == 0)?" disabled=\"disabled\" ":"")
            .append(">")
            .append(val)
            .append("</textarea>")
@@ -631,28 +604,29 @@
          }
 
          sb.append("</div>");
-           
-         
-         if (repeatable && !readonly && i < defaults.length)
-         {
-            // put a remove button next to filled in values
-            sb.append("<button class=\"btn btn-danger col-md-2\" name=\"submit_")
-              .append(fieldName)
-              .append("_remove_")
-              .append(i)
-              .append("\" value=\"")
-              .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.remove"))
-              .append("\"><span class=\"glyphicon glyphicon-trash\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.remove")+"</button>");
-         }
-         else if (repeatable && !readonly && i == fieldCount - 1)
-         {
-            // put a 'more' button next to the last space
-            sb.append("<button class=\"btn btn-default col-md-2\" name=\"submit_")
-              .append(fieldName)
-              .append("_add\" value=\"")
-              .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add"))
-              .append("\"><span class=\"glyphicon glyphicon-plus\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add")+"</button>");
-         }
+
+
+          if (defaults.length > 0)
+          {
+              sb.append("<div class=\"col-md-2 pull-right\" style=\"padding: 0px\">");
+
+              // put a revert button next to filled in values
+
+              sb.append("<button class=\"btn btn-default\"  name=\"submit_")
+                      .append(fieldName)
+                      .append("_anonymize_")
+                      .append(i)
+                      .append("\">Anonym")
+                      .append("</button>");
+              sb.append("<button class=\"btn btn-default\"  name=\"submit_")
+                      .append(fieldName)
+                      .append("_revert_")
+                      .append(i)
+                      .append("\">Revert")
+                      .append("</button>");
+
+              sb.append("</div>");
+          }
 
          // put a blank if nothing else
          sb.append("</div>");
@@ -709,7 +683,7 @@
              .append("\" id=\"")
              .append(fieldNameIdx).append("\" size=\"50\" value=\"")
              .append(val +"\"")
-             .append((hasVocabulary(vocabulary)&&closedVocabulary) || readonly?" disabled=\"disabled\" ":"")
+             .append((hasVocabulary(vocabulary)&&closedVocabulary) || readonly || (defaults.length == 0)?" disabled=\"disabled\" ":"")
              .append("/>")
 			 .append(doControlledVocabulary(fieldNameIdx, pageContext, vocabulary, readonly))             
              .append("</div>");
@@ -723,25 +697,26 @@
            	   sb.append("</div></div>");
            }             
 
-          if (repeatable && !readonly && i < defaults.length)
+          if (defaults.length > 0)
           {
-             // put a remove button next to filled in values
-             sb.append("<button class=\"btn btn-danger col-md-2\" name=\"submit_")
-               .append(fieldName)
-               .append("_remove_")
-               .append(i)
-               .append("\" value=\"")
-               .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.remove"))
-               .append("\"><span class=\"glyphicon glyphicon-trash\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.remove")+"</button>");
-          }
-          else if (repeatable && !readonly && i == fieldCount - 1)
-          {
-             // put a 'more' button next to the last space
-             sb.append("<button class=\"btn btn-default col-md-2\" name=\"submit_")
-               .append(fieldName)
-               .append("_add\" value=\"")
-               .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add"))
-               .append("\"><span class=\"glyphicon glyphicon-plus\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add")+"</button>");
+              sb.append("<div class=\"col-md-2 pull-right\" style=\"padding: 0px\">");
+
+              // put a revert button next to filled in values
+
+              sb.append("<button class=\"btn btn-default\"  name=\"submit_")
+                      .append(fieldName)
+                      .append("_anonymize_")
+                      .append(i)
+                      .append("\">Anonym")
+                      .append("</button>");
+              sb.append("<button class=\"btn btn-default\"  name=\"submit_")
+                      .append(fieldName)
+                      .append("_revert_")
+                      .append(i)
+                      .append("\">Revert")
+                      .append("</button>");
+
+              sb.append("</div>");
           }
 
           sb.append("</div>");
@@ -871,14 +846,14 @@
                      .append("/>")
                      .append(doControlledVocabulary(fieldParam, pageContext, vocabulary, readonly))
         			 .append("</span>\n");
-                   if (i+1 >= fieldCount && !readonly)
-                   {
-                     sb.append(" <button class=\"btn btn-default col-md-2\" name=\"submit_")
-                       .append(fieldName)
-                       .append("_add\" value=\"")
-                       .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add"))
-                       .append("\"><span class=\"glyphicon glyphicon-plus\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add")+"</button>\n");
-                   }
+//                   if (i+1 >= fieldCount && !readonly)
+//                   {
+//                     sb.append(" <button class=\"btn btn-default col-md-2\" name=\"submit_")
+//                       .append(fieldName)
+//                       .append("_add\" value=\"")
+//                       .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add"))
+//                       .append("\"><span class=\"glyphicon glyphicon-plus\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add")+"</button>\n");
+//                   }
                  }
        sb.append("</div>");          
       }
@@ -984,16 +959,16 @@
               .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.remove"))
               .append("\"><span class=\"glyphicon glyphicon-trash\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.remove")+"</button>");
          }
-         else if (repeatable && !readonly && j == fieldCount - 1)
-         {
-            // put a 'more' button next to the last space
-            sb.append("<button class=\"btn btn-default col-md-2\" name=\"submit_")
-              .append(fieldName)
-//            .append("_add\" value=\"Add More\"/> </td></tr>");
-              .append("_add\" value=\"")
-              .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add"))
-              .append("\"><span class=\"glyphicon glyphicon-plus\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add")+"</button>");
-         }
+//         else if (repeatable && !readonly && j == fieldCount - 1)
+//         {
+//            // put a 'more' button next to the last space
+//            sb.append("<button class=\"btn btn-default col-md-2\" name=\"submit_")
+//              .append(fieldName)
+////            .append("_add\" value=\"Add More\"/> </td></tr>");
+//              .append("_add\" value=\"")
+//              .append(LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add"))
+//              .append("\"><span class=\"glyphicon glyphicon-plus\"></span>&nbsp;&nbsp;"+LocaleSupport.getLocalizedMessage(pageContext, "jsp.submit.edit-metadata.button.add")+"</button>");
+//         }
 
          // put a blank if nothing else
        	 sb.append("</div>");

@@ -976,12 +976,7 @@ public class MyDSpaceServlet extends DSpaceServlet
 
    private void processAnnonymization(Context context, Item item) throws SQLException, AuthorizeException
    {
-      //MYO anonimize metadata
-      // Get all the metadata
-      Metadatum[] values = item.getMetadata(Item.ANY, Item.ANY, Item.ANY, Item.ANY);
-      metadataAnonimizer.anonymize(values);
-      item.setMetadata(Arrays.asList(values));
-      item.update();
+      item.createBackup(context);
       context.commit();
    }
 }
