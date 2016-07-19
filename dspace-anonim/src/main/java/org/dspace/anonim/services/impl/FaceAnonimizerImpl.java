@@ -36,7 +36,7 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
 
    private static CascadeClassifier faceDetector;
 
-   private static Pattern pattern = Pattern.compile("\\.*[a-zA-Z0-9]\\.*");
+   private static Pattern pattern = Pattern.compile("[^a-zA-Z0-9ąćęłóńśźżĄĆĘŁŃÓŚŹŻ]*[a-zA-Z0-9ąćęłóńśźżĄĆĘŁŃÓŚŹŻ]{2,}[^a-zA-Z0-9ąćęłóńśźżĄĆĘŁŃÓŚŹŻ]*");
 
    @Override
    public void afterPropertiesSet() throws Exception
@@ -144,31 +144,28 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
 //      System.out.println("rows: " + image.rows() + " cols: " + image.cols());
 //      System.out.println("height: " + image.height() + " width: " + image.width());
       Mat src_gray = imageProcessor.getGrayImage();
-      Imgproc.cvtColor(image, src_gray, Imgproc.COLOR_RGB2GRAY);
 
-      Mat counturs = new Mat();
+      Mat morph = new Mat();
       Mat morphKernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(6,6));
-      Imgproc.morphologyEx(src_gray, counturs, Imgproc.MORPH_GRADIENT, morphKernel); //kontury
+      Imgproc.morphologyEx(src_gray, morph, Imgproc.MORPH_GRADIENT, morphKernel); //kontury
 
       Mat readable = new Mat();
       Mat bw = new Mat();
 
-      Imgproc.threshold(counturs, readable, 128, 255, Imgproc.THRESH_BINARY);//wersja readable
+      Imgproc.threshold(morph, readable, 128, 255, Imgproc.THRESH_BINARY);//wersja readable
       Imgproc.GaussianBlur(readable, bw, new Size(25, 25), 0);
       Imgproc.threshold(bw, bw, 128, 255, Imgproc.THRESH_OTSU);
-      Imgproc.threshold(bw, bw, 128, 255, Imgproc.THRESH_BINARY | Imgproc.THRESH_OTSU);
-
 
       morphKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(15,2));
-      Mat connected = new Mat();
-      Imgproc.morphologyEx(bw, connected, Imgproc.MORPH_CLOSE, morphKernel);
+      Mat lines = new Mat();
+      Imgproc.morphologyEx(bw, lines, Imgproc.MORPH_CLOSE, morphKernel);
 
+      Mat connected = new Mat();
       morphKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(30,1));
-      Imgproc.dilate(connected, connected, morphKernel);
+      Imgproc.dilate(lines, connected, morphKernel);
 
       Mat mask = Mat.zeros(bw.size(), CvType.CV_8UC1);
       List<MatOfPoint> contours = new ArrayList<>();
-
       MatOfInt4 hierarchy = new MatOfInt4();
       Imgproc.findContours(connected, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE, new Point(0,0));
 
@@ -192,25 +189,29 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
             String result = tesseract.doOCR(inputImage, new Rectangle(rect.x, rect.y, rect.width, rect.height));
             long tEnd = System.currentTimeMillis();
             timeOCR += (tEnd - tStart);
-           // System.out.println(">>>" + result);
 
             if (StringUtils.isNotBlank(result) && pattern.matcher(result).find())
             {
+//               result = result.replace(";","");
+//               result = result.replace("\n","");
+//               System.out.print("(" + result + ")");
                rect.width = rect.width % 2 == 1 ? rect.width : rect.width + 1;
                rect.height = rect.height % 2 == 1 ? rect.height : rect.height + 1;
                Core.rectangle(image, rect.br(), rect.tl(), new Scalar(0, 255, 0), 2);
-            }
 //               if (isSensitiveData(result))
 //               {
 //                  rect.width = rect.width % 2 == 1 ? rect.width : rect.width + 1;
 //                  rect.height = rect.height % 2 == 1 ? rect.height : rect.height + 1;
 //                  Imgproc.GaussianBlur(image.submat(rect), image.submat(rect), new Size(rect.width, rect.height), 55);
 //               }
+
+            }
          }
       }
-      System.out.println("OCR time[s]: " + timeOCR / 1000.0);
+      //System.out.println("OCR time[s]: " + timeOCR / 1000.0);
+      System.out.print(";" + (timeOCR / 1000.0) + ";");
       imageProcessor.save();
-      //Highgui.imencode(".jpeg", src_gray, imageProcessor.getFile());
+      //Highgui.imencode(".jpeg", lines, imageProcessor.getFile());
    }
 
 
@@ -235,12 +236,14 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
          String folderPath = "C:\\Users\\Marek\\Desktop\\mgr\\testy\\face";
          File folder = new File(folderPath);
 
+         System.out.println("File;Size;WorkTime;");
+
          for (File file : folder.listFiles())
          {
             if (!file.isDirectory())
             {
                double size = (file.length() / 1024);
-               System.out.println("procesing " + file.getName() + " size[KB]: " + size);
+               //System.out.println("procesing " + file.getName() + " size[KB]: " + size);
                InputStream inputstrem = new FileInputStream(file);
                ImageProcessor imageProcessor = new ImageProcessor(".jpeg");
                imageProcessor.loadImage(inputstrem);
@@ -249,7 +252,9 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
                findAndBlurFaces(imageProcessor);
                long tEnd = System.currentTimeMillis();
                double timeSeconds = (tEnd - tStart) / 1000.0;
-               System.out.println("work time [s]: " + timeSeconds);
+              // System.out.println("work time [s]: " + timeSeconds);
+               System.out.println(file.getName() + ";" + size + ";" + timeSeconds + ";");
+
 
                InputStream result = imageProcessor.getResult();
                inputstrem.close();
@@ -281,15 +286,17 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
          tesseract.setDatapath("C:\\Program Files\\Tesseract OCR");
          tesseract.setLanguage("pol");
 
-         String folderPath = "C:\\Users\\Marek\\Desktop\\mgr\\testy\\text";
+         String folderPath = "C:\\Users\\Marek\\Desktop\\mgr\\testy\\text\\chars74";
          File folder = new File(folderPath);
 
+         System.out.println("File;Size;OCRTime;WorkTime;");
          for (File file : folder.listFiles())
          {
             if (!file.isDirectory())
             {
                double size = (file.length() / 1024);
-               System.out.println("procesing " + file.getName() + " size[KB]: " + size);
+               //System.out.println("procesing " + file.getName() + " size[KB]: " + size);
+               System.out.print(file.getName() + ";" + size + ";");
                InputStream inputstrem = new FileInputStream(file);
 
                ImageProcessor imageProcessor = new ImageProcessor(".jpeg");
@@ -299,7 +306,8 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
                testFindAndBlurText(imageProcessor);
                long tEnd = System.currentTimeMillis();
                double timeSeconds = (tEnd - tStart) / 1000.0;
-               System.out.println("work time [s]: " + timeSeconds);
+               //System.out.println("work time [s]: " + timeSeconds);
+               System.out.println(timeSeconds + ";");
                InputStream result = imageProcessor.getResult();
                inputstrem.close();
 
@@ -315,7 +323,7 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
    }
 
 
-   public static void mainx(String argv[])
+   public static void main3(String argv[])
    {
       try
       {
@@ -325,7 +333,7 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
          tesseract.setLanguage("pol");
 
          String folderPath = "C:\\Users\\Marek\\Desktop\\mgr\\testy\\text";
-         File ifile = new File(folderPath + "\\auto.jpg");
+         File ifile = new File(folderPath + "\\test.jpg");
 
          double size = (ifile.length() / 1024);
          System.out.println("procesing " + ifile.getName() + " size[KB]: " + size);

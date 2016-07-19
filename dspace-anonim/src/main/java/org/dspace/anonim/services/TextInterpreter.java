@@ -30,7 +30,7 @@ public class TextInterpreter
 
    public static final Pattern REGISTRATION_PLATE_PATTERN = Pattern.compile("[ZGNBFPCWEDOSTLKR]{1}[A-Z]{1,2} ?[A-Z0-9]{4,5}"); //todo : 3 lub 2 wielkie litery i dalej min 2 littery i 5 cyfr
 
-   public static final Pattern URL_PATTERN = Pattern.compile("(http|https|Http|Https|www)?(:\\/\\/)?[a-zA-Z0-9\\\\._]+[\\\\.]{1}(com|pl|net|org|ru|gov){1}");
+   public static final Pattern URL_PATTERN = Pattern.compile("(http|https|Http|Https|www)?(:\\\\\\\\\\\\\\\\/\\\\\\\\\\\\\\\\/)?[a-zA-Z0-9\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\._]+[\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\.]{1}(com|pl|net|org|ru|gov){1}(\\/)?");
 
    //[A-Z]{1}[a-zA-Z]+
 
@@ -124,13 +124,13 @@ public class TextInterpreter
       return result;
    }
 
-   public boolean isRegistrationPlate(String text)
+   public static boolean isRegistrationPlate(String text)
    {
       if (REGISTRATION_PLATE_PATTERN.matcher(text).find())
       {
          int letters = 0;
          int numbers = 0;
-         String[] chars = StringUtils.split(text.trim());
+         String[] chars = text.trim().split("");
          for (String elem : chars)
          {
             if (StringUtils.isNumeric(elem))
@@ -195,5 +195,17 @@ public class TextInterpreter
          return true;
       }
       return false;
+   }
+
+   public static void main(String[] argv)
+   {
+      System.out.print("DWR 53991  >>>>>>>>>");
+      System.out.println(isRegistrationPlate("DWR 53991"));
+      System.out.print("LCH 56X45 >>>>>>>>>");
+      System.out.println(isRegistrationPlate("LCH 56X45"));
+      System.out.print("KWI R324  >>>>>>>>>");
+      System.out.println(isRegistrationPlate("KWI R324"));
+      System.out.print("KWI RSDGH  >>>>>>>>>");
+      System.out.println(isRegistrationPlate("KWI RSDGH"));
    }
 }
