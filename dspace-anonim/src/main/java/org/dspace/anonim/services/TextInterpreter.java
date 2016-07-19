@@ -101,6 +101,11 @@ public class TextInterpreter
             result = SensitiveType.PALTE;
          }
 
+         if (result == null && isPhoneNumber(text))
+         {
+            result = SensitiveType.PHONE;
+         }
+
          if (result == null && isEmail(text))
          {
             result = SensitiveType.EMAIL;
