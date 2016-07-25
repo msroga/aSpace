@@ -44,11 +44,12 @@ public class FaceAnonimizerImpl implements InitializingBean, IFaceAnonimizer
       String tesseractPath = ConfigurationManager.getProperty("tesseract.path");
       String tesseractLang = ConfigurationManager.getProperty("tesseract.lang");
       String openCVDllPath = ConfigurationManager.getProperty("opencv.dll.path");
+      String cascade = ConfigurationManager.getProperty("faces.model");
       System.load(openCVDllPath);
       tesseract = new Tesseract();  // JNA Interface Mapping
       tesseract.setDatapath(tesseractPath);
       tesseract.setLanguage(tesseractLang);
-      faceDetector = new CascadeClassifier("C:/dspace/haarcascade_frontalface_alt.xml");
+      faceDetector = new CascadeClassifier(cascade);
    }
 
    @Override
